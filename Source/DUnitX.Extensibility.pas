@@ -76,6 +76,7 @@ type
     procedure SetMaxTime(const AValue: cardinal);
     function GetTimedOut: Boolean;
     procedure SetTimedOut(const AValue: Boolean);
+    function GetIsTestCase : boolean;
 
     property Name : string read GetName;
     property FullName : string read GetFullName;
@@ -85,6 +86,7 @@ type
     property Fixture : ITestFixture read GetTestFixture;
     property Ignored : boolean read GetIgnored;
     property IgnoreReason : string read GetIgnoreReason;
+    property IsTestCase : boolean read GetIsTestCase;
     property TestMethod : TTestMethod read GetTestMethod;
     property IgnoreMemoryLeaks : Boolean read GetIgnoreMemoryLeaks write SetIgnoreMemoryLeaks;
     property MaxTime: cardinal read GetMaxTime write SetMaxTime;
@@ -183,6 +185,8 @@ type
   end;
 
   TTestFixtureList = class(TDUnitXList<ITestFixture>, ITestFixtureList)
+  private
+    procedure Sort;
   end;
 
 
@@ -225,4 +229,36 @@ type
 
 implementation
 
+uses
+  {$IFDEF USE_NS}
+  System.Generics.Defaults
+  {$ELSE}
+  Generics.Defaults
+  {$ENDIF}
+  ;
+
+{ TTestFixtureList }
+
+procedure TTestFixtureList.Sort;
+var
+  AFixture: ITestFixture;
+
+  Comparer: TDelegatedComparer<ITestFixture>;
+
+begin
+  Comparer := TDelegatedComparer<ITestFixture>.Create(
+    function (const Left, Right: ITestFixture): Integer
+    begin
+      Result := CompareStr(Left.FullName, Right.FullName);
+    end);
+
+  inherited Sort(Comparer);
+
+  Comparer.Free;
+
+  for AFixture in (Self as ITestFixtureList) do
+    AFixture.Children.Sort;
+end;
+
 end.
+

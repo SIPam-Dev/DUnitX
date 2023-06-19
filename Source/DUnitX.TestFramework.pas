@@ -490,6 +490,8 @@ type
     function GetFailsOnNoAsserts : boolean;
     procedure SetFailsOnNoAsserts(const value : boolean);
 
+    function CurrentTestName : string;
+
     //This is exposed for the GUI Runner cast as ITestFixtureList.
     function BuildFixtures : IInterface;
 
@@ -502,7 +504,6 @@ type
     //redirects WriteLn to our loggers.
     procedure WriteLn(const msg : string);overload;
     procedure WriteLn;overload;
-
 
     ///	<summary>
     ///	  When true, test fixtures will be found by using RTTI to search for
@@ -552,7 +553,7 @@ type
     //If true do not show the banner
     property HideBanner : boolean read FHideBanner write FHideBanner;
 
-    //Defaults to Pause
+    //Defaults to Continue
     property ExitBehavior : TDUnitXExitBehavior read FExitBehavior write FExitBehavior;
 
     property ConsoleMode : TDunitXConsoleMode read FConsoleMode write FConsoleMode ;
@@ -664,7 +665,7 @@ constructor TDUnitXOptions.Create;
 begin
   FRun := TStringList.Create;
   FLogLevel := TLogLevel.Information;
-  FExitBehavior := TDUnitXExitBehavior.Pause;
+  FExitBehavior := TDUnitXExitBehavior.Continue;
   FConsoleMode := TDUnitXConsoleMode.Verbose;
 end;
 

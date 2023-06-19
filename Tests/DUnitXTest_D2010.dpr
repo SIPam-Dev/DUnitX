@@ -1,10 +1,10 @@
-program DUnitXTest_XE;
+program DUnitXTest_D2010;
 
 {$IFNDEF GUI}
 {$APPTYPE CONSOLE}
 {$ENDIF}
 
-{$STRONGLINKTYPES ON}
+{$STRONGLINKTYPES OFF}
 
 uses
   SysUtils,
@@ -86,6 +86,7 @@ begin
     runner := TDUnitX.CreateRunner;
     runner.UseRTTI := True;
     runner.FailsOnNoAsserts := True; //Assertions must be made during tests;
+    TDUnitX.Options.ExitBehavior := TDUnitXExitBehavior.Pause;
 
     //tell the runner how we will log things
 

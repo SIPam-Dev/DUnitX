@@ -39,7 +39,7 @@ uses
 
 type
   {$M+}
-  [TestFixture('ExampleFixture1','General Example Tests')]
+  [TestFixture('Examples.Fixture1','General Example Tests')]
   TMyExampleTests = class
   public
     //Run the same test with mulitiple parameters.
@@ -71,6 +71,9 @@ type
     procedure TestError;
 
     [Test]
+    {$IFDEF DELPHI_2010}
+    [Ignore('MaxTime does not work in D2010')]
+    {$ENDIF}
     [MaxTime(2000)]
     procedure TooLong;
 

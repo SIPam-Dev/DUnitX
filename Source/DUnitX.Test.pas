@@ -83,6 +83,8 @@ type
     procedure SetMaxTime(const AValue: cardinal);
     function GetTimedOut: Boolean;
     procedure SetTimedOut(const AValue: Boolean);
+    function GetIsTestCase : boolean;virtual;
+
 
     //ITestInfo
     function GetActive : boolean;
@@ -128,6 +130,7 @@ type
     FRttiMethod : TRttiMethod;
     FInstance : TObject;
   protected
+    function GetIsTestCase : boolean;override;
     function GetName: string; override;
     procedure Execute(const context : ITestExecuteContext); override;
     procedure UpdateInstance(const fixtureInstance : TObject);override;
@@ -246,6 +249,11 @@ begin
   result := FIgnoreReason;
 end;
 
+function TDUnitXTest.GetIsTestCase: boolean;
+begin
+  result := false;
+end;
+
 function TDUnitXTest.GetMethodName: string;
 begin
   result := FMethodName;
@@ -357,12 +365,8 @@ begin
     //Only keep as many arguments as there are params
     SetLength(FArgs, len);
     for index := 0 to Pred(len) do
-    begin
-      if index <= high(AArgs) then
-        if AArgs[index].TryConvert(parameters[index].ParamType.Handle, tmp) then
-          FArgs[index] := tmp;
-
-    end;
+      if (index <= high(AArgs)) and Assigned(parameters[index].ParamType) and AArgs[index].TryConvert(parameters[index].ParamType.Handle, tmp) then
+        FArgs[index] := tmp;
   end;
 end;
 
@@ -384,9 +388,18 @@ begin
   end;
 end;
 
+function TDUnitXTestCase.GetIsTestCase: boolean;
+begin
+  result := true;
+end;
+
 function TDUnitXTestCase.GetName: string;
 begin
-  Result := FName + '.' + FCaseName;
+  if FCaseName <> '' then
+    Result := FName + '.' + FCaseName
+  else
+    Result := FName;
+
 end;
 
 procedure TDUnitXTestCase.UpdateInstance(const fixtureInstance: TObject);

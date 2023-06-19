@@ -74,11 +74,13 @@ type
     class procedure AreEqual(const expected, actual : Double; const message : string = '');overload;
     class procedure AreEqual(const expected, actual : Extended; const tolerance : Extended; const message : string = '');overload;
     class procedure AreEqual(const expected, actual : Extended; const message : string = '');overload;
+    class procedure AreEqual(const expected, actual : Currency; const message : string = '');overload;
     class procedure AreEqual(const expected, actual : TClass; const message : string = '');overload;
     class procedure AreEqual(const expected, actual : TStream; const message : string = '');overload;
 {$IFNDEF DELPHI_XE_DOWN}
     //Delphi 2010 and XE compiler bug breaks this
     class procedure AreEqual<T>(const expected, actual : T; const message : string = '');overload;
+    class procedure AreEqual<T>(const expected, actual : TArray<T>; const message : string = '');overload;
 {$ENDIF}
     class procedure AreEqual(const expected, actual : word; const message : string = '');overload;
     class procedure AreEqual(const expected, actual : Integer; const message : string = '');overload;
@@ -100,6 +102,7 @@ type
 
     class procedure AreNotEqual(const expected, actual : Double; const tolerance : double; const message : string = '');overload;
     class procedure AreNotEqual(const expected, actual : Double; const message : string = '');overload;
+    class procedure AreNotEqual(const expected, actual : Currency; const message : string = '');overload;
 
     class procedure AreNotEqual(const expected, actual : TClass; const message : string = '');overload;
 
@@ -230,6 +233,15 @@ type
     /// </summary>
     class procedure WillNotRaiseAny(const AMethod : TTestMethod; const msg : string = ''); overload;
 
+    /// <summary>
+    ///   Checks that an exception exactly matching ExceptClass and Message will not be raised.
+    /// </summary>
+    class procedure WillNotRaiseWithMessage(const AMethod : TTestLocalMethod; const exceptionClass : ExceptClass = nil; const exceptionMsg: string = ''; const msg : string = ''); overload;
+    /// <summary>
+    ///   Checks that an exception exactly matching ExceptClass and Message will not be raised.
+    /// </summary>
+    class procedure WillNotRaiseWithMessage(const AMethod : TTestMethod; const exceptionClass : ExceptClass = nil; const exceptionMsg: string = ''; const msg : string = ''); overload;
+
     class procedure Contains(const theString : string; const subString : string; const ignoreCase : boolean; const message : string = ''); overload;
     class procedure Contains(const theString : string; const subString : string; const message : string = ''); overload;
     class procedure DoesNotContain(const theString : string; const subString : string; const ignoreCase : boolean; const message : string = ''); overload;
@@ -262,6 +274,8 @@ type
     {$IFDEF SUPPORTS_REGEX}
     class procedure IsMatch(const regexPattern : string; const theString : string; const message : string = '');
     {$ENDIF}
+
+    class procedure CheckExpectation(const EmptyExpectation: String; const Message: String = '');
 
     class property OnAssert: TProc read fOnAssert write fOnAssert;
     class property TestFailure: ExceptClass read fTestFailure write fTestFailure;
@@ -418,6 +432,30 @@ begin
     FailFmt(SNotEqualErrorStr, [expectedValue.ToString, actualValue.ToString, message], ReturnAddress)
   end;
 end;
+
+class procedure Assert.AreEqual<T>(const expected, actual : TArray<T>; const message : string = '');
+var
+  i : integer;
+  comparer : IComparer<T>;
+  expectedValue, actualValue : TValue;
+begin
+  DoAssert;
+  if Length(expected) <> Length(actual) then
+    FailFmt(SArraysHaveDifferentLength, [Length(expected), Length(actual), message], ReturnAddress)
+  else begin
+    comparer := TComparer<T>.Default;
+    for i := 0 to High(expected) do
+    begin
+      if comparer.Compare(expected[i],actual[i]) <> 0 then
+      begin
+        expectedValue := TValue.From<T>(expected[i]);
+        actualValue := TValue.From<T>(actual[i]);
+        FailFmt(SArraysAreDifferent, [i, expectedValue.ToString, actualValue.ToString, message], ReturnAddress)
+      end;
+    end;
+  end;
+end;
+
 {$ENDIF}
 
 class function Assert.AddLineBreak(const msg: string): string;
@@ -471,6 +509,14 @@ begin
   tolerance := 0;
   AreEqual(expected, actual, tolerance, message);
 end;
+
+class procedure Assert.AreEqual(const expected, actual: Currency; const message: string);
+begin
+  DoAssert;
+  if expected <> actual then
+    FailFmt(SEqualsErrorExt ,[expected,actual,message], ReturnAddress);
+end;
+
 
 class procedure Assert.AreEqualMemory(const expected : Pointer; const actual : Pointer; const size : Cardinal; const message : string);
 begin
@@ -540,7 +586,7 @@ begin
     expectedValue := TValue.From<T>(expected);
     actualValue := TValue.From<T>(actual);
 
-    FailFmt(SEqualsErrorStr2,[expectedValue.ToString, actualValue.ToString, message], ReturnAddress);
+    FailFmt(SEqualsErrorStr,[expectedValue.ToString, actualValue.ToString, message], ReturnAddress);
   end;
 end;
 {$ENDIF}
@@ -688,7 +734,7 @@ end;
 
 class procedure Assert.FailFmt(const message: string; const args: array of const; const errorAddrs: pointer);
 begin
-  Fail(Format(message, args), errorAddrs);
+  Fail(Trim(Format(message, args)), errorAddrs);
 end;
 
 class procedure Assert.Pass(const message: string);
@@ -935,37 +981,42 @@ begin
 end;
 
 class procedure Assert.NoDiff(const expected, actual: string; const ignoreCase : boolean; const message: string);
-const
-  DIFF_LENGTH = 10;
+
+  procedure FailSubstring(position: integer);
+  const
+    DIFF_LENGTH = 10;
+  begin
+    FailFmt(SDiffAtPosition + ': ' + SStrDoesNotMatch, [position,
+      TStrUtils.EncodeWhitespace(Copy(expected, position, DIFF_LENGTH)),
+      TStrUtils.EncodeWhitespace(Copy(actual, position, DIFF_LENGTH)), message]);
+  end;
+
 var
-  lenExp, lenAct: integer;
+  lenExp, lenAct, lenCmp: integer;
   strExp, strAct: string;
   position: Integer;
 begin
   DoAssert;
   lenExp := Length(expected);
   lenAct := Length(actual);
+  lenCmp := Min(lenExp, lenAct);
 
-  if lenExp <> lenAct then
-    FailFmt(SLengthOfStringsNotEqual + ': ' + SUnexpectedErrorInt, [lenExp, lenAct, message])
+  if ignoreCase then
+  begin
+    strExp := UpperCase(expected);
+    strAct := UpperCase(actual);
+  end
   else begin
-    if ignoreCase then
-    begin
-      strExp := UpperCase(expected);
-      strAct := UpperCase(actual);
-    end
-    else begin
-      strExp := expected;
-      strAct := actual;
-    end;
-    for position := 1 to lenExp do
-    begin
-      if (position <= lenAct) and (strExp[position] <> strAct[position]) then
-        FailFmt(SDiffAtPosition + ': ' + SStrDoesNotMatch, [position,
-          TStrUtils.EncodeWhitespace(Copy(expected, position, DIFF_LENGTH)),
-          TStrUtils.EncodeWhitespace(Copy(actual, position, DIFF_LENGTH)), message]);
-    end;
+    strExp := expected;
+    strAct := actual;
   end;
+  for position := 1 to lenCmp do
+  begin
+    if strExp[position] <> strAct[position] then
+      FailSubstring(position);
+  end;
+  if lenExp <> lenAct then
+    FailSubstring(lenCmp + 1);
 end;
 
 class procedure Assert.NoDiff(const expected, actual, message: string);
@@ -1041,7 +1092,7 @@ begin
           Fail(SMethodRaisedException + exceptionClass.ClassName + sLineBreak + e.Message + AddLineBreak(msg), ReturnAddress);
       end
       else
-        FailFmt(SMethodRaisedExceptionAlt, [e.ClassName, exceptionClass.ClassName, e.message], ReturnAddress);
+        FailFmt(SMethodRaisedExceptionAlt, [e.ClassName, exceptionClass.ClassName, e.message, AddLineBreak(msg)], ReturnAddress);
     end;
   end;
 end;
@@ -1054,6 +1105,31 @@ begin
       AMethod;
     end,
     exceptionClass, msg);
+end;
+
+class procedure Assert.WillNotRaiseWithMessage(const AMethod: TTestLocalMethod; const exceptionClass: ExceptClass; const exceptionMsg, msg: string);
+begin
+  DoAssert;
+  try
+    AMethod;
+  except
+    on E: Exception do
+    begin
+      if ((exceptionMsg = '') or SameStr(e.Message, exceptionMsg)) and
+         (((exceptionClass <> nil) and (e.ClassType = exceptionClass)) or (exceptionClass = nil)) then
+        FailFmt(SMethodRaisedExceptionMessage, [exceptionClass.ClassName, e.Message, AddLineBreak(msg)], ReturnAddress);
+    end;
+  end;
+end;
+
+class procedure Assert.WillNotRaiseWithMessage(const AMethod: TTestMethod; const exceptionClass: ExceptClass; const exceptionMsg, msg: string);
+begin
+  Assert.WillNotRaiseWithMessage(
+      procedure
+      begin
+        AMethod;
+      end,
+      exceptionClass, exceptionMsg, msg);
 end;
 
 class procedure Assert.WillRaise(const AMethod : TTestLocalMethod; const exceptionClass : ExceptClass; const msg : string);
@@ -1222,6 +1298,14 @@ begin
     FailFmt(SCheckExceptionClassDescError, [E.ClassName, exceptionClass.ClassName, E.message], ReturnAddress);
 end;
 
+class procedure Assert.CheckExpectation(const EmptyExpectation, Message: String);
+begin
+  DoAssert;
+
+  if EmptyExpectation <> '' then
+    FailFmt(SCheckEmptyExpectation, [EmptyExpectation, Message]);
+end;
+
 class procedure Assert.Contains(const theStrings: TStrings; const subString: string; const ignoreCase: boolean; const message: string);
 begin
   Contains(theStrings.Text, subString, ignoreCase, message);
@@ -1339,6 +1423,14 @@ begin
   DoAssert;
   if IsEqualGUID(expected, actual) then
     FailFmt(SEqualsErrorGUID,[GUIDToString(expected), GUIDToString(actual), message], ReturnAddress);
+end;
+
+class procedure Assert.AreNotEqual(const expected, actual: Currency; const message: string);
+begin
+  DoAssert;
+  if expected = actual then
+    FailFmt(SEqualsErrorExt ,[expected,actual,message], ReturnAddress);
+
 end;
 
 class procedure Assert.AreNotEqual(const expected, actual: TStream; const message: string);

@@ -1,9 +1,9 @@
-program DUnitXExamples_XE7;
+program DUnitXExamples_D11Alexandria;
 
 {$APPTYPE CONSOLE}
 
 uses
-  SysUtils,
+  System.SysUtils,
   DUnitX.Examples.General in 'DUnitX.Examples.General.pas',
   DUnitX.ConsoleWriter.Base in '..\Source\DUnitX.ConsoleWriter.Base.pas',
   DUnitX.DUnitCompatibility in '..\Source\DUnitX.DUnitCompatibility.pas',
@@ -36,8 +36,10 @@ uses
   DUnitX.CommandLine.Options in '..\Source\DUnitX.CommandLine.Options.pas',
   DUnitX.CommandLine.Parser in '..\Source\DUnitX.CommandLine.Parser.pas',
   DUnitX.FixtureProviderPlugin in '..\Source\DUnitX.FixtureProviderPlugin.pas',
-  ProviderExample in 'ProviderExample.pas',
-  DUnitX.Timeout in '..\Source\DUnitX.Timeout.pas';
+  DUnitX.Timeout in '..\Source\DUnitX.Timeout.pas',
+  DUnitX.Attributes in '..\Source\DUnitX.Attributes.pas',
+  DUnitX.Linux.Console in '..\Source\DUnitX.Linux.Console.pas',
+  ProviderExample in 'ProviderExample.pas';
 
 var
   runner : ITestRunner;

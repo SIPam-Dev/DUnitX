@@ -90,6 +90,10 @@ type
     [Category('Bar,foo')]
     procedure TestTwoOne;
 
+    [Test]
+    [MaxTime(1000)]
+    procedure TestMaxTime;
+
     //Disabled test
     [Test(false)]
     procedure DontCallMe;
@@ -145,8 +149,13 @@ type
   private
     FSetupCalled : boolean;
   public
-    //testing constructor/destructor as fixture setup/teardown
+    // Testing constructor/destructor as fixture setup/teardown
+    // Delphi 2010 does support calling of constructor
+    {$IFDEF DELPHI_XE_UP}
     constructor Create;
+    {$ELSE}
+    procedure AfterConstruction; override;
+    {$ENDIF}
     destructor Destroy;override;
 
     [SetupFixture]
@@ -159,9 +168,12 @@ implementation
 
 uses
   DUnitX.DUnitCompatibility,
+  DUnitX.Exceptions,
+  System.Diagnostics,
   {$IFDEF USE_NS}
   System.DateUtils;
   {$ELSE}
+  Diagnostics,
   DateUtils;
   {$ENDIF}
 
@@ -233,6 +245,31 @@ begin
   dateTime := RecodeMilliSecond(dateTime, 000);
   expected := EncodeDateTime(1988, 10, 21, 17, 44, 23, 000);
   Assert.IsTrue( SameDateTime(expected, dateTime) );
+end;
+
+procedure TMyExampleTests.TestMaxTime;
+var
+  elapsedTime : Int64;
+  stopwatch : TStopWatch;
+begin
+  stopwatch := TStopWatch.Create;
+  stopwatch.Reset;
+  stopwatch.Start;
+  try
+    repeat
+      //Give some time back to the system to process the test.
+      Sleep(20);
+
+      elapsedTime :=  stopwatch.ElapsedMilliseconds;
+    until (elapsedTime >= 2000);
+    Assert.Fail('Timeout did not work');
+  except
+    on e : ETimedOut do
+    begin
+      Assert.Pass('timed out as expected');
+
+    end;
+  end;
 end;
 
 procedure TMyExampleTests.TestMeAnyway;
@@ -309,7 +346,11 @@ begin
   Assert.IsTrue(FSetupCalled);
 end;
 
+{$IFDEF DELPHI_XE_UP}
 constructor TExampleFixture3.Create;
+{$ELSE}
+procedure TExampleFixture3.AfterConstruction;
+{$ENDIF}
 begin
   FSetupCalled := True;
 end;
